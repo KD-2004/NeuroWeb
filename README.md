@@ -27,5 +27,6 @@ A web application that transforms PDFs into interactive AI-powered learning tool
    ```bash
    pip install -r requirements.txt
 
-   ![image](https://github.com/user-attachments/assets/05d5d611-96fb-4f95-bb0f-fac7361df104)
+
+![WhatsApp Image 2025-05-27 at 04 10 09_64e739de](https://github.com/user-attachments/assets/1731ff78-1ee6-492c-a765-9359193adaa0)
 

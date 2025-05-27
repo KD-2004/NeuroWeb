@@ -1,0 +1,6 @@
+flask
+PyMuPDF
+requests
+edge-tts
+speechrecognition
+pyaudio

@@ -1,0 +1,1812 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI Learning Companion</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; border-radius: 4px; } /* slate-800 */
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; } /* slate-600 */
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; } /* slate-500 */
+
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a; /* slate-900 */
+            color: #e2e8f0; /* slate-200 */
+        }
+        /* Hide number input spinners */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] { -moz-appearance: textfield; }
+
+        .hide-arrows { -moz-appearance: textfield; }
+        .hide-arrows::-webkit-outer-spin-button,
+        .hide-arrows::-webkit-inner-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
+
+        /* Custom animations */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fadeIn { animation: fadeIn 0.5s ease-out forwards; }
+
+        @keyframes pulse-light {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.4); } /* sky-400 */
+            50% { box-shadow: 0 0 0 10px rgba(56, 189, 248, 0); }
+        }
+        .mic-recording { animation: pulse-light 1.5s infinite; }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(15, 23, 42, 0.8); /* slate-900 with opacity */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0s linear 0.3s;
+        }
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+            transition: opacity 0.3s ease;
+        }
+        .modal-content {
+            background-color: #1e293b; /* slate-800 */
+            padding: 2rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0, 0.5);
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            transform: scale(0.95);
+            transition: transform 0.3s ease;
+        }
+        .modal-overlay.active .modal-content {
+            transform: scale(1);
+        }
+
+        /* Toast Notifications */
+        #toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .toast {
+            padding: 12px 20px;
+            border-radius: 8px;
+            color: white;
+            font-size: 0.875rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            opacity: 0;
+            transform: translateX(100%);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+        .toast.success { background-color: #22c55e; } /* green-500 */
+        .toast.error { background-color: #ef4444; } /* red-500 */
+        .toast.info { background-color: #3b82f6; } /* blue-500 */
+        .toast.warning { background-color: #f59e0b; } /* amber-500 */
+
+        /* Glassmorphism effect for panels */
+        .glass-panel {
+            background-color: rgba(30, 41, 59, 0.6); /* slate-800 with opacity */
+            backdrop-filter: blur(12px) saturate(150%);
+            -webkit-backdrop-filter: blur(12px) saturate(150%);
+            border: 1px solid rgba(51, 65, 85, 0.4); /* slate-700 with opacity */
+            border-radius: 0.75rem; /* rounded-xl */
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+        .chat-message { word-break: break-word; }
+        .prose-dark code::before, .prose-dark code::after { content: none; }
+        .prose-dark pre { background-color: #0f172a; border: 1px solid #334155; } /* slate-900, slate-700 */
+
+        /* For PDF text selection */
+        #pdf-text-display::selection {
+            background-color: #0ea5e9; /* sky-500 */
+            color: white;
+        }
+
+        /* --- Mobile-specific adjustments (User Provided & Enhanced) --- */
+        /* Adjustments for screens smaller than 768px (typical mobile) */
+        @media (max-width: 767px) {
+            /* Adjust header layout and padding */
+            header .container {
+                padding: 0.5rem; /* Smaller padding on mobile */
+            }
+
+            /* Smaller logo and title */
+            header svg {
+                width: 24px;
+                height: 24px;
+            }
+
+            header h1 {
+                font-size: 1.1rem; /* Smaller font size for title */
+            }
+
+            /* Stack PDF and chat panels vertically */
+            main {
+                grid-template-columns: 1fr; /* Single column grid */
+                padding: 0.5rem; /* Smaller padding around main content */
+                gap: 0.5rem; /* Smaller gap between panels */
+            }
+
+            /* Adjust panel heights for mobile */
+            #pdf-panel, #chat-panel {
+                /* Calculate height based on viewport height, subtracting header/footer/gap */
+                height: calc(50vh - 100px);
+                min-height: 300px; /* Ensure minimum height */
+            }
+
+            /* Mobile-friendly PDF controls layout */
+            #pdf-viewer-controls {
+                flex-direction: column; /* Stack controls vertically */
+                gap: 0.5rem; /* Space between stacked control groups */
+            }
+             #pdf-viewer-controls > div {
+                 width: 100%; /* Make control groups take full width */
+                 justify-content: center; /* Center items within control groups */
+             }
+
+
+            /* Increase tap target sizes for better touch usability */
+            button, [role="button"] {
+                min-width: 44px;
+                min-height: 44px;
+            }
+
+            /* Adjust chat input layout and font size */
+            #chat-input {
+                font-size: 14px;
+                padding: 0.75rem;
+            }
+
+            /* Smaller text for elements using text-xl class */
+            .text-xl {
+                font-size: 1.1rem;
+            }
+
+            /* Modal adjustments for smaller screens */
+            .modal-content {
+                width: 95%; /* Wider modal on small screens */
+                padding: 1rem; /* Smaller padding inside modal */
+            }
+
+            /* PDF filename truncation for smaller screens */
+            #pdf-filename-display {
+                max-width: 120px; /* Limit width to prevent overflow */
+            }
+
+            /* Chat message adjustments for smaller screens */
+            .chat-message {
+                max-width: 95%; /* Allow messages to be wider */
+                font-size: 14px;
+            }
+
+            /* Adjust padding for chat messages container */
+            #chat-messages {
+                padding: 0.5rem;
+            }
+
+            /* Adjust gap for chat input area */
+            .flex.items-end.gap-2 {
+                 gap: 0.5rem;
+            }
+
+            /* Adjust padding and gap for AI actions bar */
+            #ai-actions-bar {
+                 padding: 0.5rem 0;
+                 gap: 0.5rem;
+            }
+             #ai-actions-bar button {
+                 padding: 0.5rem 0.75rem; /* Adjust button padding */
+                 font-size: 0.75rem; /* Smaller font size for action buttons */
+             }
+        }
+
+        /* Tablet adjustments (screens between 768px and 1023px) */
+        @media (min-width: 768px) and (max-width: 1023px) {
+            /* Stack panels vertically on tablets */
+            main {
+                grid-template-columns: 1fr; /* Single column grid */
+                padding: 1rem; /* Slightly more padding than mobile */
+                gap: 1rem; /* Slightly more gap than mobile */
+            }
+
+            /* Adjust panel heights for tablets */
+            #pdf-panel, #chat-panel {
+                /* Calculate height based on viewport height, adjusting for header/footer/gap */
+                height: calc(50vh - 120px);
+                min-height: 400px; /* Ensure minimum height */
+            }
+            /* Adjust header padding for tablets */
+            header .container {
+                 padding: 1rem;
+            }
+             /* Adjust main padding for tablets */
+             main {
+                 padding: 1rem;
+             }
+              /* Adjust panel padding for tablets */
+             #pdf-panel, #chat-panel {
+                 padding: 1rem;
+             }
+             /* Adjust chat messages padding for tablets */
+             #chat-messages {
+                 padding: 1rem;
+             }
+
+        }
+
+         /* Desktop adjustments (screens 1024px and larger) */
+        @media (min-width: 1024px) {
+            main {
+                grid-template-columns: 1fr 1fr; /* Two columns */
+                padding: 1.5rem; /* Standard desktop padding */
+                gap: 1.5rem; /* Standard desktop gap */
+            }
+             #pdf-panel, #chat-panel {
+                 height: calc(100vh - 180px); /* Standard desktop height */
+                 min-height: 500px;
+             }
+             header .container {
+                 padding: 1rem;
+             }
+             #pdf-panel, #chat-panel {
+                 padding: 1.5rem;
+             }
+             #chat-messages {
+                 padding: 1rem;
+             }
+             #ai-actions-bar {
+                 padding: 0 0 1rem 0; /* Adjust padding for desktop */
+                 gap: 0.75rem;
+             }
+        }
+
+
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.11/purify.min.js" integrity="sha512-SjR323V35+G7+9JHSo3F6P2F2A7EzQx9JcZCCy5oLz2Zg3dH9LzS0ssHh20KxFjCEsLq7hN/HhV9xP/Q22aA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <header class="sticky top-0 z-30 w-full p-2 md:p-4 glass-panel shadow-lg mb-2 md:mb-4">
+        <div class="container mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-1 md:gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 md:w-8 md:h-8 text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                     <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+                    <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+                </svg>
+                <h1 class="text-lg md:text-2xl font-bold bg-gradient-to-r from-sky-400 to-cyan-300 text-transparent bg-clip-text">
+                    AI Learning Companion
+                </h1>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="theme-toggle-button" title="Toggle Theme" class="p-2 rounded-full hover:bg-slate-700 transition-colors">
+                    <svg id="theme-icon-sun" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-yellow-400 hidden"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg>
+                    <svg id="theme-icon-moon" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-sky-300"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg>
+                </button>
+                <button id="settings-button" title="Settings" class="p-2 rounded-full hover:bg-slate-700 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-300"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l-.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1 0 2.83l-.06-.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                </button>
+                <div id="user-auth-status" class="text-sm text-slate-300 flex items-center gap-2">
+                     </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow container mx-auto p-4 grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        <section id="pdf-panel" class="glass-panel p-4 md:p-6 flex flex-col h-[calc(100vh-180px)] min-h-[500px] animate-fadeIn" style="animation-delay: 0.2s;">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold text-sky-400 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                    Document Viewer
+                </h2>
+                <div id="pdf-filename-display" class="text-sm text-slate-400 truncate max-w-[150px] md:max-w-xs" title="No PDF loaded">No PDF loaded</div>
+            </div>
+
+            <div id="pdf-upload-area" class="mb-4">
+                <label for="pdf-file-input" class="w-full p-6 text-center border-2 border-dashed border-slate-600 rounded-xl cursor-pointer transition-all duration-200 ease-in-out bg-slate-700/50 hover:bg-slate-700/80 hover:border-sky-500 block">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto mb-2 text-slate-400"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" x2="12" y1="3" y2="15"></line></svg>
+                    <span class="text-slate-300">Drag & drop PDF here, or click to select</span>
+                    <p class="text-xs text-slate-500 mt-1">Max file size: 100MB</p>
+                </label>
+                <input type="file" id="pdf-file-input" accept=".pdf" class="hidden">
+                <div id="pdf-upload-progress-bar" class="w-full bg-slate-700 rounded-full h-1.5 mt-2 hidden">
+                    <div id="pdf-upload-progress" class="bg-sky-500 h-1.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+                 <p id="pdf-processing-status" class="text-xs text-sky-400 text-center mt-1 hidden"></p>
+            </div>
+
+            <div id="pdf-viewer-controls" class="flex flex-wrap items-center justify-between gap-2 mb-3 hidden">
+                <div class="flex items-center gap-1">
+                    <button id="prev-page-button" title="Previous Page" class="p-2 bg-slate-600 hover:bg-slate-500 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                    </button>
+                    <div class="flex items-center text-sm">
+                        <input type="number" id="page-num-input" class="w-12 text-center bg-slate-700 border border-slate-600 rounded-md p-1 focus:ring-sky-500 focus:border-sky-500 outline-none hide-arrows" min="1">
+                        <span class="mx-1 text-slate-400">/</span>
+                        <span id="total-pages-display" class="w-8 text-left text-slate-300">0</span>
+                    </div>
+                    <button id="next-page-button" title="Next Page" class="p-2 bg-slate-600 hover:bg-slate-500 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                    </button>
+                </div>
+                <div class="flex items-center gap-1">
+                    <button id="zoom-out-button" title="Zoom Out" class="p-2 bg-slate-600 hover:bg-slate-500 rounded-md transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" x2="16.65" y1="21" y2="16.65"></line><line x1="8" x2="14" y1="11" y2="11"></line></svg>
+                    </button>
+                    <span id="zoom-level-display" class="text-xs text-slate-300 w-12 text-center">100%</span>
+                    <button id="zoom-in-button" title="Zoom In" class="p-2 bg-slate-600 hover:bg-slate-500 rounded-md transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" x2="16.65" y1="21" y2="16.65"></line><line x1="11" x2="11" y1="8" y2="14"></line><line x1="8" x2="14" y1="11" y2="11"></line></svg>
+                    </button>
+                     <button id="zoom-reset-button" title="Reset Zoom" class="p-2 bg-slate-600 hover:bg-slate-500 rounded-md transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v6h6"></path><path d="M21 12A9 9 0 0 0 6 5.3L3 8"></path><path d="M21 22v-6h-6"></path><path d="M3 12a9 9 0 0 0 15 6.7l3-2.7"></path></svg>
+                    </button>
+                </div>
+            </div>
+
+            <div id="pdf-image-viewer" class="flex-grow bg-slate-900 rounded-lg shadow-inner overflow-auto flex items-center justify-center relative p-2">
+                <img id="pdf-page-image" src="" alt="PDF Page" class="max-w-full max-h-full object-contain transition-transform duration-200 ease-in-out" style="transform-origin: center;">
+                <div id="pdf-viewer-placeholder" class="text-slate-500">Upload a PDF to view pages.</div>
+                <div id="pdf-page-loading-spinner" class="absolute inset-0 flex items-center justify-center bg-slate-900/50 hidden">
+                    <svg class="animate-spin h-10 w-10 text-sky-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                </div>
+            </div>
+            <div class="mt-2 text-right">
+                 <button id="speak-page-button" title="Speak Page Content" class="p-2 text-sm bg-sky-600 hover:bg-sky-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 hidden">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                    Speak Page
+                </button>
+                </div>
+            <div id="pdf-text-display-container" class="mt-2 h-20 overflow-y-auto p-2 bg-slate-700/50 rounded prose prose-sm prose-dark max-w-full hidden">
+                <p id="pdf-text-display" class="text-slate-300 text-xs"></p>
+            </div>
+            <button id="toggle-text-display-button" class="mt-1 text-xs text-sky-400 hover:text-sky-300 hidden">Show/Hide Page Text for Selection</button>
+        </section>
+
+        <section id="chat-panel" class="glass-panel p-4 md:p-6 flex flex-col h-[calc(100vh-180px)] min-h-[500px] animate-fadeIn" style="animation-delay: 0.4s;">
+            <h2 class="text-xl font-semibold text-sky-400 mb-3 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path><path d="m15 5 4 4"></path></svg>
+                AI Chat
+            </h2>
+
+            <div id="ai-actions-bar" class="mb-3 flex flex-wrap gap-2 hidden">
+                </div>
+
+            <div id="chat-messages" class="flex-grow overflow-y-auto mb-3 p-2 rounded-lg bg-slate-900/50 shadow-inner space-y-3">
+                <div class="text-center text-slate-500 text-sm py-4">AI interaction will appear here.</div>
+            </div>
+
+            <div id="ai-thinking-indicator" class="text-sm text-sky-400 italic mb-2 hidden flex items-center gap-2">
+                <svg class="animate-spin h-4 w-4 text-sky-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                AI is thinking...
+            </div>
+            <div id="last-ai-response-tts-controls" class="mb-2 flex items-center gap-2 hidden">
+                 </div>
+
+            <div class="flex items-end gap-2">
+                <textarea id="chat-input" placeholder="Ask AI anything..." class="flex-grow p-3 bg-slate-700 text-gray-200 rounded-lg resize-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none max-h-32 overflow-y-auto scrollbar-thin" rows="1" disabled></textarea>
+                <button id="voice-query-button" title="Voice Query" class="p-3 bg-slate-600 hover:bg-slate-500 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" x2="12" y1="19" y2="22"></line></svg>
+                </button>
+                <button id="send-chat-button" title="Send Message" class="p-3 bg-sky-500 hover:bg-sky-600 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                </button>
+            </div>
+        </section>
+    </main>
+
+    <div id="settings-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-semibold text-sky-400">Application Settings</h3>
+                <button id="close-settings-modal-button" class="p-1 text-slate-400 hover:text-slate-200">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <div class="space-y-5">
+                <div>
+                    <label for="ai-model-select" class="block text-sm font-medium text-slate-300 mb-1">AI Model</label>
+                    <div class="flex gap-2">
+                        <select id="ai-model-select" class="w-full p-2.5 bg-slate-700 border border-slate-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition-colors"></select>
+                        <button id="refresh-models-button" title="Refresh Models" class="p-2.5 bg-slate-600 hover:bg-slate-500 rounded-lg transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v6h6"></path><path d="M21 12A9 9 0 0 0 6 5.3L3 8"></path><path d="M21 22v-6h-6"></path><path d="M3 12a9 9 0 0 0 15 6.7l3-2.7"></path></svg>
+                        </button>
+                    </div>
+                </div>
+                <div>
+                    <label for="ai-personality-select" class="block text-sm font-medium text-slate-300 mb-1">AI Personality</label>
+                    <select id="ai-personality-select" class="w-full p-2.5 bg-slate-700 border border-slate-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition-colors"></select>
+                </div>
+                <div>
+                    <label for="tts-voice-select" class="block text-sm font-medium text-slate-300 mb-1">TTS Voice</label>
+                    <select id="tts-voice-select" class="w-full p-2.5 bg-slate-700 border border-slate-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition-colors"></select>
+                </div>
+                <div class="flex items-center justify-between">
+                    <label for="auto-play-tts-toggle" class="text-sm font-medium text-slate-300">Auto-play AI Responses (TTS)</label>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="auto-play-tts-toggle" class="sr-only peer">
+                        <div class="w-11 h-6 bg-slate-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-sky-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sky-500"></div>
+                    </label>
+                </div>
+                 <div>
+                    <label for="ai-temperature-slider" class="block text-sm font-medium text-slate-300 mb-1">AI Temperature: <span id="ai-temperature-value">0.6</span></label>
+                    <input type="range" id="ai-temperature-slider" min="0" max="2" step="0.1" value="0.6" class="w-full h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-sky-500">
+                </div>
+                <div>
+                    <label for="ai-context-window-input" class="block text-sm font-medium text-slate-300 mb-1">AI Context Window</label>
+                    <input type="number" id="ai-context-window-input" min="512" max="32768" step="256" value="4096" class="w-full p-2.5 bg-slate-700 border border-slate-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition-colors hide-arrows">
+                </div>
+
+                 <div class="mt-6 border-t border-slate-700 pt-4">
+                    <h4 class="text-md font-semibold text-slate-300 mb-2">Session Management</h4>
+                    <button id="clear-chat-history-button" class="w-full text-sm p-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors mb-2">Clear Chat History</button>
+                    <button id="clear-user-cache-button" class="w-full text-sm p-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors mb-2">Clear All My Data & Reset Session</button>
+                    <button id="logout-button" class="w-full text-sm p-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">Logout</button>
+                    <p class="text-xs text-slate-500 mt-1">Clearing all data will log you out if authentication is active and reset PDF & settings.</p>
+                </div>
+            </div>
+            <div class="mt-8 flex justify-end">
+                <button id="save-settings-button" class="px-6 py-2.5 bg-sky-500 hover:bg-sky-600 text-white font-semibold rounded-lg transition-colors">Save & Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <footer class="text-center p-4 text-xs text-slate-500 border-t border-slate-700/50 mt-auto">
+        AI Learning Companion &copy; 2024-2025. For demonstration purposes.
+    </footer>
+
+    <script>
+        // --- Global State and Configuration ---
+        const appState = {
+            apiBaseUrl: '/api/v1', // Matches your server.py
+            pdfFile: null,
+            pdfTaskId: null,
+            isPdfProcessing: false,
+            pdfFilename: null,
+            pdfTotalPages: 0,
+            pdfCurrentPage: 1, // 1-indexed
+            pdfZoomLevel: 1.0,
+            pdfPageTexts: [], // To store text for each page for selection
+            pdfPageImagesBase64: [], // To store array of base64 images for each page
+
+            chatMessages: [],
+            isAiThinking: false,
+            selectedTextForAi: null, // Text selected from PDF page
+
+            // Settings (will be loaded from backend)
+            currentOllamaModel: null,
+            availableOllamaModels: [],
+            selectedPersonality: 'Default Tutor',
+            availablePersonalities: [], // Will be populated from backend's PERSONALITIES
+            selectedVoice: 'en-US-JennyNeural',
+            availableVoices: ["en-US-JennyNeural", "en-US-GuyNeural", "en-GB-LibbyNeural", "en-IN-NeerjaNeural", "en-US-AriaNeural"], // Default list
+            autoPlayAiTts: false,
+            aiTemperature: 0.6,
+            aiContextWindow: 4096,
+
+            ttsAudioUrl: null,
+            isTtsPlaying: false,
+            ttsTaskId: null,
+            isTtsLoading: false,
+            lastAiResponseForTts: null,
+
+            isVoiceRecording: false,
+            mediaRecorder: null,
+            audioChunks: [],
+        };
+
+        // --- DOM Elements ---
+        // (Get references to all frequently used DOM elements here after DOMContentLoaded)
+        let themeToggleButton, themeIconSun, themeIconMoon, settingsButton, settingsModal, closeSettingsModalButton, saveSettingsButton;
+        let pdfFileInput, pdfUploadArea, pdfUploadProgressBar, pdfUploadProgress, pdfProcessingStatus, pdfFilenameDisplay;
+        let pdfViewerControls, prevPageButton, nextPageButton, pageNumInput, totalPagesDisplay;
+        let zoomInButton, zoomOutButton, zoomResetButton, zoomLevelDisplay, pdfImageViewer, pdfPageImage, pdfViewerPlaceholder, pdfPageLoadingSpinner;
+        let speakPageButton, pdfTextDisplayContainer, pdfTextDisplay, toggleTextDisplayButton;
+        let chatPanel, aiActionsBar, chatMessagesContainer, chatInput, sendChatButton, voiceQueryButton, aiThinkingIndicator, lastAiResponseTtsControls;
+        let aiModelSelect, aiPersonalitySelect, ttsVoiceSelect, autoPlayTtsToggle, aiTemperatureSlider, aiTemperatureValue, aiContextWindowInput;
+        let refreshModelsButton, clearChatHistoryButton, clearUserCacheButton, logoutButton; // Added logoutButton
+        let toastContainer;
+        let userAuthStatusDiv; // Added div to show auth status
+
+        // --- Utility Functions ---
+        function showToast(message, type = 'info', duration = 3000) {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            toastContainer.appendChild(toast);
+            setTimeout(() => toast.classList.add('show'), 10); // Trigger transition
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, duration);
+        }
+
+        async function apiRequest(endpoint, method = 'GET', body = null, isFormData = false) {
+            const url = `${appState.apiBaseUrl}${endpoint}`;
+            const options = {
+                method,
+                headers: {},
+            };
+            if (body) {
+                if (isFormData) {
+                    options.body = body; // FormData sets its own Content-Type
+                } else {
+                    options.headers['Content-Type'] = 'application/json';
+                    options.body = JSON.stringify(body);
+                }
+            }
+            // For session cookies to be sent, 'credentials' might be needed if frontend/backend are different origins
+            // options.credentials = 'include';
+
+            try {
+                const response = await fetch(url, options);
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ error: `HTTP error! Status: ${response.status}` }));
+                    console.error('API Error:', errorData);
+                    throw new Error(errorData.error || errorData.message || `Request failed with status ${response.status}`);
+                }
+                // Handle cases where response might be empty (e.g., 204 No Content)
+                const contentType = response.headers.get("content-type");
+                if (contentType && contentType.indexOf("application/json") !== -1) {
+                    return await response.json();
+                } else if (contentType && contentType.indexOf("audio/mpeg") !== -1) {
+                    return await response.blob(); // For TTS audio
+                }
+                return await response.text(); // Or handle as blob, etc.
+            } catch (error) {
+                console.error(`API request to ${endpoint} failed:`, error);
+                showToast(error.message || 'An API error occurred.', 'error');
+                throw error;
+            }
+        }
+
+        // --- Theme Toggle ---
+        function applyTheme(theme) {
+            if (theme === 'dark') {
+                document.documentElement.classList.add('dark');
+                if(themeIconSun) themeIconSun.classList.add('hidden');
+                if(themeIconMoon) themeIconMoon.classList.remove('hidden');
+            } else {
+                document.documentElement.classList.remove('dark');
+                if(themeIconSun) themeIconSun.classList.remove('hidden');
+                if(themeIconMoon) themeIconMoon.classList.add('hidden');
+            }
+            localStorage.setItem('aiCompanionTheme', theme);
+        }
+
+        // --- UI Update Functions ---
+        function updatePdfControlsUI() {
+            if (!appState.pdfFilename) {
+                pdfViewerControls.classList.add('hidden');
+                pdfFilenameDisplay.textContent = 'No PDF loaded';
+                pdfFilenameDisplay.title = 'No PDF loaded';
+                speakPageButton.classList.add('hidden');
+                toggleTextDisplayButton.classList.add('hidden');
+                pdfTextDisplayContainer.classList.add('hidden');
+                // Also hide the stop button if it exists
+                const stopButton = document.getElementById('stop-page-tts-button');
+                if (stopButton) stopButton.classList.add('hidden');
+                return;
+            }
+            pdfViewerControls.classList.remove('hidden');
+            pdfFilenameDisplay.textContent = appState.pdfFilename.length > 25 ? appState.pdfFilename.substring(0,22) + '...' : appState.pdfFilename;
+            pdfFilenameDisplay.title = appState.pdfFilename;
+
+            pageNumInput.value = appState.pdfCurrentPage;
+            pageNumInput.max = appState.pdfTotalPages;
+            totalPagesDisplay.textContent = appState.pdfTotalPages;
+
+            prevPageButton.disabled = appState.pdfCurrentPage <= 1;
+            nextPageButton.disabled = appState.pdfCurrentPage >= appState.pdfTotalPages;
+
+            zoomLevelDisplay.textContent = `${Math.round(appState.pdfZoomLevel * 100)}%`;
+            // pdfPageImage.style.transform = `scale(${appState.pdfZoomLevel})`; // Zoom handled by backend rendering
+
+            speakPageButton.classList.remove('hidden');
+            speakPageButton.disabled = appState.isTtsLoading || appState.isTtsPlaying;
+            toggleTextDisplayButton.classList.remove('hidden');
+
+             // Update state of stop button if it exists
+            const stopButton = document.getElementById('stop-page-tts-button');
+            if (stopButton) {
+                 stopButton.classList.toggle('hidden', !appState.isTtsPlaying);
+                 stopButton.disabled = !appState.isTtsPlaying;
+            }
+        }
+
+        async function displayPdfPage(pageNumber) { // 1-indexed
+            if (pageNumber < 1 || pageNumber > appState.pdfTotalPages) return;
+            appState.pdfCurrentPage = pageNumber;
+
+            pdfPageLoadingSpinner.classList.remove('hidden');
+            pdfPageImage.classList.add('hidden');
+            pdfViewerPlaceholder.classList.add('hidden');
+            pdfPageImage.src = ''; // Clear previous image
+
+            try {
+                // 1. Fetch page content (text and image count/data)
+                const contentData = await apiRequest(`/page_content/${pageNumber}`);
+                // Store page text for selection
+                appState.pdfPageTexts[pageNumber - 1] = contentData.page_text || '';
+                pdfTextDisplay.textContent = appState.pdfPageTexts[pageNumber - 1] || 'No text extracted for this page.';
+                // Store base64 images for this page (though not displayed in main viewer)
+                appState.pdfPageImagesBase64[pageNumber - 1] = contentData.page_images || [];
+
+                // 2. Fetch the rendered page image
+                const renderData = await apiRequest(`/render_page/${pageNumber}`);
+                if (renderData && renderData.image_data_b64) {
+                     pdfPageImage.src = `data:image/png;base64,${renderData.image_data_b64}`;
+                     pdfPageImage.classList.remove('hidden');
+                     pdfViewerPlaceholder.classList.add('hidden'); // Hide placeholder if image loaded
+                } else {
+                    // Fallback if rendering failed or no image data returned
+                    pdfViewerPlaceholder.textContent = renderData.error || 'Could not render page image.';
+                    pdfViewerPlaceholder.classList.remove('hidden');
+                }
+
+                updatePdfControlsUI(); // Update page number, buttons etc.
+                // Ensure TTS controls for the page are updated based on new page text availability
+                updateTtsControlsUI('page');
+
+
+            } catch (error) {
+                console.error(`Error displaying page ${pageNumber}:`, error);
+                showToast(`Error loading page ${pageNumber}: ${error.message}`, 'error');
+                pdfViewerPlaceholder.textContent = `Error loading page ${pageNumber}.`;
+                pdfViewerPlaceholder.classList.remove('hidden');
+                pdfPageImage.classList.add('hidden');
+            } finally {
+                pdfPageLoadingSpinner.classList.add('hidden');
+            }
+        }
+
+        function updateChatUI() {
+            chatMessagesContainer.innerHTML = ''; // Clear existing messages
+            if (appState.chatMessages.length === 0) {
+                 chatMessagesContainer.innerHTML = '<div class="text-center text-slate-500 text-sm py-4">AI interaction will appear here.</div>';
+            }
+            appState.chatMessages.forEach(msg => addMessageToChatDOM(msg));
+            chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight; // Scroll to bottom
+
+            // Enable/disable chat input based on model selection
+            const modelReady = appState.currentOllamaModel && !appState.currentOllamaModel.toLowerCase().includes("error") && !appState.currentOllamaModel.toLowerCase().includes("offline") && !appState.currentOllamaModel.toLowerCase().includes("no models");
+            chatInput.disabled = appState.isAiThinking || appState.isVoiceRecording || !modelReady;
+            sendChatButton.disabled = appState.isAiThinking || appState.isVoiceRecording || !modelReady;
+            voiceQueryButton.disabled = appState.isAiThinking || !modelReady; // Keep voice enabled even if recording (to stop)
+
+            if (!modelReady && !appState.isAiThinking && !appState.isVoiceRecording) {
+                chatInput.placeholder = "Select an AI model in Settings to chat.";
+            } else if (appState.isVoiceRecording) {
+                 chatInput.placeholder = "Recording... Speak now!";
+            } else if (appState.isAiThinking) {
+                chatInput.placeholder = "AI is thinking...";
+            } else {
+                chatInput.placeholder = "Ask AI anything...";
+            }
+
+            aiThinkingIndicator.classList.toggle('hidden', !appState.isAiThinking);
+        }
+
+        function addMessageToChatDOM(message) { // message: { role, content, images?, timestamp }
+            const msgDiv = document.createElement('div');
+            msgDiv.classList.add('chat-message', 'p-3', 'rounded-xl', 'max-w-[85%]', 'md:max-w-[75%]', 'shadow-md', 'animate-fadeIn');
+
+            let iconSvg = '';
+            const timeStr = new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+            if (message.role === 'user') {
+                msgDiv.classList.add('bg-sky-600', 'text-white', 'self-end', 'rounded-br-none');
+                iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 flex-shrink-0 rounded-full p-0.5 bg-sky-700 text-white"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>`;
+                msgDiv.innerHTML = `
+                    <div class="flex items-end gap-2">
+                        <div class="prose prose-sm prose-invert max-w-none">${DOMPurify.sanitize(message.content)}</div>
+                        ${iconSvg}
+                    </div>
+                    <p class="text-xs text-sky-200 mt-1 text-right">${timeStr}</p>`;
+            } else if (message.role === 'ai') {
+                msgDiv.classList.add('bg-slate-600', 'text-gray-200', 'self-start', 'rounded-bl-none');
+                iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 flex-shrink-0 rounded-full p-0.5 bg-sky-500 text-white"><path d="M12 8V4H8"></path><rect width="16" height="12" x="4" y="8" rx="2"></rect><path d="M2 14h2"></path><path d="M20 14h2"></path><path d="M15 13v2"></path><path d="M9 13v2"></path></svg>`;
+                 msgDiv.innerHTML = `
+                    <div class="flex items-end gap-2">
+                        ${iconSvg}
+                        <div>
+                            <div class="prose prose-sm prose-invert max-w-none">${DOMPurify.sanitize(message.content, {USE_PROFILES: {html: true}})}</div>
+                            ${message.images && message.images.length > 0 ? `
+                                <div class="mt-2 grid grid-cols-2 gap-2">
+                                    ${message.images.map(imgData => `<img src="data:image/png;base64,${imgData}" alt="AI Image" class="rounded-md border border-slate-500 object-contain max-h-40">`).join('')}
+                                </div>` : ''}
+                        </div>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-1 text-left">${timeStr}</p>`;
+            } else if (message.role === 'system') {
+                msgDiv.classList.add('bg-slate-700', 'text-slate-400', 'self-center', 'text-xs', 'italic', 'w-full', 'text-center', 'py-1', 'px-2');
+                msgDiv.innerHTML = DOMPurify.sanitize(message.content);
+            } else if (message.role === 'error') {
+                msgDiv.classList.add('bg-red-700', 'text-red-100', 'self-center', 'text-xs', 'w-full', 'text-center', 'py-1', 'px-2');
+                iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline mr-1"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`;
+                msgDiv.innerHTML = iconSvg + DOMPurify.sanitize(message.content);
+            }
+            chatMessagesContainer.appendChild(msgDiv);
+        }
+
+        function updateSettingsUI() {
+            // AI Model Select
+            aiModelSelect.innerHTML = '';
+            if (appState.availableOllamaModels && appState.availableOllamaModels.length > 0 && !appState.availableOllamaModels[0].toLowerCase().includes("error") && !appState.availableOllamaModels[0].toLowerCase().includes("offline") && !appState.availableOllamaModels[0].toLowerCase().includes("no models")) {
+                appState.availableOllamaModels.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model;
+                    option.textContent = model;
+                    if (model === appState.currentOllamaModel) option.selected = true;
+                    aiModelSelect.appendChild(option);
+                });
+                aiModelSelect.disabled = false;
+            } else {
+                const option = document.createElement('option');
+                option.value = "";
+                option.textContent = appState.availableOllamaModels[0] || "Loading models...";
+                option.disabled = true;
+                option.selected = true;
+                aiModelSelect.appendChild(option);
+                aiModelSelect.disabled = true;
+            }
+
+            // AI Personality Select
+            aiPersonalitySelect.innerHTML = '';
+            appState.availablePersonalities.forEach(p => {
+                const option = document.createElement('option');
+                option.value = p;
+                option.textContent = p;
+                if (p === appState.selectedPersonality) option.selected = true;
+                aiPersonalitySelect.appendChild(option);
+            });
+
+            // TTS Voice Select
+            ttsVoiceSelect.innerHTML = '';
+            appState.availableVoices.forEach(voice => {
+                const option = document.createElement('option');
+                option.value = voice;
+                option.textContent = voice;
+                if (voice === appState.selectedVoice) option.selected = true;
+                ttsVoiceSelect.appendChild(option);
+            });
+
+            autoPlayTtsToggle.checked = appState.autoPlayAiTts;
+            aiTemperatureSlider.value = appState.aiTemperature;
+            aiTemperatureValue.textContent = appState.aiTemperature.toFixed(1);
+            aiContextWindowInput.value = appState.aiContextWindow;
+
+            // Update AI action buttons based on PDF loaded and model capabilities
+            updateAiActionButtons();
+            updateChatUI(); // To update placeholder and button states
+        }
+
+        function updateAiActionButtons() {
+            aiActionsBar.innerHTML = '';
+            if (!appState.pdfFilename) { // No PDF loaded
+                aiActionsBar.classList.add('hidden');
+                return;
+            }
+            aiActionsBar.classList.remove('hidden');
+
+            const actions = [
+                { name: 'explain_concept', label: 'Explain Concept', icon: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><path d="M12 17h.01"></path></svg>`, requiresSelection: true },
+                { name: 'explain_code', label: 'Explain Code', icon: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>`, requiresSelection: true, requiresCodeModel: true },
+                { name: 'summarize_page', label: 'Summarize Page', icon: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>` },
+                { name: 'key_points', label: 'Key Points', icon: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>` },
+                { name: 'generate_quiz', label: 'Generate Quiz', icon: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"></path><path d="m9 12 2 2 4-4"></path></svg>` },
+                { name: 'analyze_images', label: 'Analyze Images', icon: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>`, requiresVisionModel: true },
+            ];
+
+            actions.forEach(action => {
+                const button = document.createElement('button');
+                button.innerHTML = `${action.icon} ${action.label}`;
+                button.className = "text-xs px-3 py-1.5 bg-slate-600 hover:bg-slate-500 text-slate-200 rounded-md transition-colors flex items-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed";
+                button.title = action.label;
+                button.onclick = () => handleAiAction(action.name);
+
+                let disabled = appState.isAiThinking || !appState.currentOllamaModel || appState.currentOllamaModel.toLowerCase().includes("error");
+                if (action.requiresSelection && !appState.selectedTextForAi) {
+                    button.title = `Select text from PDF to ${action.label.toLowerCase()}`;
+                    // disabled = true; // Keep it enabled to show the message on click, or disable and change title
+                }
+                // TODO: Add model capability checks here to disable buttons
+                // This requires fetching model capabilities and storing them.
+                // For now, this check is simplified.
+                if (action.requiresVisionModel && (!appState.currentOllamaModel || !appState.currentOllamaModel.toLowerCase().includes('llava'))) { // Simple check
+                     button.title = `Select a vision-capable model (e.g., LLaVA) for ${action.label.toLowerCase()}`;
+                     disabled = true;
+                }
+                 if (action.requiresCodeModel && (!appState.currentOllamaModel || !appState.currentOllamaModel.toLowerCase().includes('code'))) { // Simple check
+                     button.title = `Select a code-explaining model for ${action.label.toLowerCase()}`;
+                     disabled = true;
+                }
+
+                button.disabled = disabled;
+                aiActionsBar.appendChild(button);
+            });
+        }
+
+        // --- Event Handlers ---
+        function handlePdfFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (file.size > 100 * 1024 * 1024) { // 100MB limit
+                showToast('PDF file size exceeds 100MB limit.', 'error');
+                return;
+            }
+
+            appState.pdfFile = file;
+            appState.pdfFilename = file.name;
+            appState.isPdfProcessing = true;
+            pdfUploadProgressBar.classList.remove('hidden');
+            pdfUploadProgress.style.width = '0%';
+            pdfProcessingStatus.textContent = `Uploading ${file.name}...`;
+            pdfProcessingStatus.classList.remove('hidden');
+            showToast(`Uploading ${file.name}...`, 'info');
+            updatePdfControlsUI(); // Show filename
+            updateAiActionButtons(); // Hide actions until PDF processed
+
+            const formData = new FormData();
+            formData.append('pdf_file', file);
+
+            // Simulate upload progress for FormData (not easily available with fetch)
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += 10;
+                pdfUploadProgress.style.width = `${Math.min(progress, 90)}%`; // Stop at 90% before actual request
+                if (progress >= 90) clearInterval(interval);
+            }, 100);
+
+            apiRequest('/pdf', 'POST', formData, true)
+                .then(data => {
+                    clearInterval(interval);
+                    pdfUploadProgress.style.width = '100%';
+                    appState.pdfTaskId = data.task_id;
+                    pdfProcessingStatus.textContent = `Processing: ${data.filename}. Task ID: ${data.task_id}`;
+                    showToast(`"${data.filename}" uploaded! Processing started.`, 'success');
+                    pollPdfStatus(data.task_id);
+                })
+                .catch(error => {
+                    clearInterval(interval);
+                    appState.isPdfProcessing = false;
+                    pdfUploadProgressBar.classList.add('hidden');
+                    pdfProcessingStatus.textContent = `Upload failed: ${error.message}`;
+                    showToast(`Upload failed: ${error.message}`, 'error');
+                });
+        }
+
+        function pollPdfStatus(taskId) {
+            let retries = 0;
+            const maxRetries = 60; // Increased polling duration
+            const pollInterval = 2000; // Poll every 2 seconds
+
+            const poller = setInterval(async () => {
+                try {
+                    const response = await fetch(`/api/v1/pdf_status/${taskId}`);
+                    if (!response.ok) {
+                         // If status is 202, it's still processing, don't treat as error yet
+                         if (response.status !== 202) {
+                             throw new Error(`HTTP ${response.status}`);
+                         }
+                    }
+
+                    const data = await response.json();
+
+                    // Update UI status
+                    updateProcessingStatus(data);
+
+                    if (data.status === 'completed') {
+                        clearInterval(poller);
+                        handleProcessingSuccess(data);
+                    } else if (data.status === 'failed') { // Explicitly check for 'failed' status from backend
+                        clearInterval(poller);
+                        handleProcessingError(data.error || 'PDF processing task reported failure.');
+                    } else if (data.status === 'pending' || data.status === 'started') {
+                         // Continue polling
+                    } else {
+                         // Handle unexpected statuses
+                         clearInterval(poller);
+                         handleProcessingError(`Unexpected PDF processing status: ${data.status}`);
+                    }
+
+                    retries = 0; // Reset retry counter on successful response (even 202)
+
+                } catch (error) {
+                    retries++;
+                    if (retries >= maxRetries) {
+                        clearInterval(poller);
+                        handleProcessingError(`Polling failed after ${maxRetries} attempts or network issues.`);
+                    } else {
+                         console.warn(`Polling attempt ${retries}/${maxRetries} failed: ${error.message}. Retrying...`);
+                    }
+                }
+            }, pollInterval);
+
+            function updateProcessingStatus(data) {
+                const statusElement = document.getElementById('pdf-processing-status');
+                if (statusElement) {
+                    let statusText = data.message || `Processing...`;
+                    if (data.status === 'completed') statusText = 'Processing complete!';
+                    else if (data.status === 'failed') statusText = `Processing failed: ${data.error || ''}`;
+                    else if (data.status === 'pending') statusText = 'Processing pending...';
+                    else if (data.status === 'started') statusText = 'Processing started...';
+
+
+                    statusElement.textContent = statusText;
+                    statusElement.classList.remove('hidden');
+                }
+            }
+
+            function handleProcessingSuccess(data) {
+                appState.pdfTotalPages = data.total_pages;
+                appState.pdfCurrentPage = 1;
+                appState.pdfFilename = data.filename;
+
+                document.getElementById('pdf-filename-display').textContent = data.filename;
+                document.getElementById('total-pages-display').textContent = data.total_pages;
+                document.getElementById('pdf-viewer-controls').classList.remove('hidden');
+
+                showToast(`PDF processed successfully: ${data.total_pages} pages loaded`, 'success');
+                // Now call displayPdfPage to load content and render the first page
+                displayPdfPage(1);
+
+                appState.isPdfProcessing = false; // Processing finished
+                pdfUploadProgressBar.classList.add('hidden');
+                pdfProcessingStatus.classList.add('hidden'); // Hide status on success
+                updateAiActionButtons(); // Show AI actions
+            }
+
+            function handleProcessingError(error) {
+                appState.isPdfProcessing = false;
+                document.getElementById('pdf-processing-status').textContent = `Error: ${error}`;
+                showToast(`PDF processing failed: ${error}`, 'error');
+                document.getElementById('pdf-upload-progress-bar').classList.add('hidden');
+                pdfViewerPlaceholder.textContent = `Failed to load PDF: ${error}`; // Update viewer placeholder
+                pdfViewerPlaceholder.classList.remove('hidden');
+                pdfPageImage.classList.add('hidden');
+                updatePdfControlsUI(); // Update controls state (e.g., disable navigation)
+                updateAiActionButtons(); // Update AI actions state
+            }
+        }
+
+
+        function handlePageNavigation(pageNumber) { // Takes 1-indexed page number
+            if (pageNumber < 1 || pageNumber > appState.pdfTotalPages || pageNumber === appState.pdfCurrentPage) return;
+            displayPdfPage(pageNumber); // Call the updated display function
+        }
+
+        async function handleZoom(type) {
+            const oldZoom = appState.pdfZoomLevel;
+            let newZoom = oldZoom;
+            if (type === 'in') newZoom = Math.min(3.0, oldZoom + 0.2);
+            else if (type === 'out') newZoom = Math.max(0.2, oldZoom - 0.2);
+            else if (type === 'reset') newZoom = 1.0;
+
+            // Round zoom to 2 decimal places to avoid floating point issues
+            newZoom = parseFloat(newZoom.toFixed(2));
+
+
+            if (oldZoom !== newZoom) {
+                appState.pdfZoomLevel = newZoom; // Update state immediately for UI responsiveness
+                 updatePdfControlsUI(); // Update zoom display
+
+                try {
+                    // Send updated zoom to backend
+                    await apiRequest('/zoom', 'POST', { zoom_level: appState.pdfZoomLevel });
+                    showToast(`Zoom set to ${Math.round(appState.pdfZoomLevel * 100)}%`, 'info', 1500);
+                    // Re-render the current page with the new zoom level
+                    displayPdfPage(appState.pdfCurrentPage);
+
+                } catch (error) {
+                    showToast(`Failed to set zoom: ${error.message}`, 'error');
+                    // Revert zoom level in state if backend failed
+                    appState.pdfZoomLevel = oldZoom;
+                    updatePdfControlsUI(); // Update zoom display back
+                }
+            }
+        }
+
+
+        function handleSendMessage() {
+            const text = chatInput.value.trim();
+            if (!text || appState.isAiThinking || appState.isVoiceRecording) return;
+
+            const userMessage = { role: 'user', content: text, timestamp: new Date().toISOString() };
+            appState.chatMessages.push(userMessage);
+            addMessageToChatDOM(userMessage); // Add to DOM immediately
+            chatInput.value = '';
+            chatInput.style.height = 'auto'; // Reset textarea height
+
+            appState.isAiThinking = true;
+            updateChatUI();
+
+            apiRequest('/ask_ai', 'POST', { input_text: text, action: 'ask' })
+                .then(data => {
+                    const aiMessage = { role: 'ai', content: data.message, images: data.images, timestamp: new Date().toISOString() };
+                    appState.chatMessages.push(aiMessage);
+                    addMessageToChatDOM(aiMessage);
+                    appState.lastAiResponseForTts = data.message; // Store for TTS
+                    updateLastAiResponseTtsControls();
+                    if (appState.autoPlayAiTts && data.message) {
+                        handleTtsRequest(data.message, true); // Autoplay
+                    }
+                })
+                .catch(error => {
+                    const errorMessage = { role: 'error', content: `AI Error: ${error.message}`, timestamp: new Date().toISOString() };
+                    appState.chatMessages.push(errorMessage);
+                    addMessageToChatDOM(errorMessage);
+                })
+                .finally(() => {
+                    appState.isAiThinking = false;
+                    updateChatUI();
+                    chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
+                });
+        }
+
+        function handleAiAction(actionName) {
+            if (appState.isAiThinking) return;
+
+            const actionDef = [ // Re-define for local use or pass from updateAiActionButtons
+                { name: 'explain_concept', label: 'Explain Concept', requiresSelection: true },
+                { name: 'explain_code', label: 'Explain Code', requiresSelection: true, requiresCodeModel: true },
+                { name: 'summarize_page', label: 'Summarize Page' },
+                { name: 'key_points', label: 'Key Points' },
+                { name: 'generate_quiz', label: 'Generate Quiz' },
+                { name: 'analyze_images', label: 'Analyze Images', requiresVisionModel: true },
+            ].find(a => a.name === actionName);
+
+            if (!actionDef) return;
+
+            if (actionDef.requiresSelection && !appState.selectedTextForAi) {
+                showToast(`Please select text from the PDF to "${actionDef.label}".`, 'warning');
+                return;
+            }
+            // TODO: Add model capability checks here before sending request (similar to updateAiActionButtons)
+
+            let userDisplayMessage = `${actionDef.label}`;
+            if (actionDef.requiresSelection && appState.selectedTextForAi) {
+                userDisplayMessage += `: "${appState.selectedTextForAi.substring(0, 30)}..."`;
+            } else if (actionDef.name === 'analyze_images') {
+                userDisplayMessage += ` on page ${appState.pdfCurrentPage}`;
+            } else if (['summarize_page', 'key_points', 'generate_quiz'].includes(actionDef.name)) {
+                userDisplayMessage += ` for page ${appState.pdfCurrentPage}`;
+            }
+
+            const userMessage = { role: 'user', content: userDisplayMessage, timestamp: new Date().toISOString() };
+            appState.chatMessages.push(userMessage);
+            addMessageToChatDOM(userMessage);
+
+            appState.isAiThinking = true;
+            updateChatUI();
+
+            const payload = {
+                action: actionName,
+                input_text: actionName, // Backend might use this for context
+                selected_text: appState.selectedTextForAi || undefined,
+            };
+
+            apiRequest('/ask_ai', 'POST', payload)
+                .then(data => {
+                    const aiMessage = { role: 'ai', content: data.message, images: data.images, timestamp: new Date().toISOString() };
+                    appState.chatMessages.push(aiMessage);
+                    addMessageToChatDOM(aiMessage);
+                    appState.lastAiResponseForTts = data.message;
+                    updateLastAiResponseTtsControls();
+                    if (appState.autoPlayAiTts && data.message) {
+                        handleTtsRequest(data.message, true); // Autoplay
+                    }
+                })
+                .catch(error => {
+                     const errorMessage = { role: 'error', content: `Action "${actionDef.label}" failed: ${error.message}`, timestamp: new Date().toISOString() };
+                    appState.chatMessages.push(errorMessage);
+                    addMessageToChatDOM(errorMessage);
+                })
+                .finally(() => {
+                    appState.isAiThinking = false;
+                    appState.selectedTextForAi = null; // Clear selection after use
+                    updateChatUI();
+                    chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
+                });
+        }
+
+        function handleToggleTextDisplay() {
+            pdfTextDisplayContainer.classList.toggle('hidden');
+            if (!pdfTextDisplayContainer.classList.contains('hidden')) {
+                // Ensure text is populated if switching to visible
+                if (appState.pdfPageTexts[appState.pdfCurrentPage - 1]) {
+                     pdfTextDisplay.textContent = appState.pdfPageTexts[appState.pdfCurrentPage - 1];
+                } else {
+                    // If text not loaded yet for current page, fetch it (or rely on displayPdfPage to have done it)
+                    // This might happen if PDF was loaded but text display was initially hidden
+                    displayPdfPage(appState.pdfCurrentPage); // This will fetch and set text
+                }
+            }
+        }
+
+        function handleTextSelection() {
+            const selection = window.getSelection().toString().trim();
+            if (selection) {
+                appState.selectedTextForAi = selection;
+                showToast(`Selected: "${selection.substring(0,30)}..."`, 'info', 2000);
+                // updateAiActionButtons(); // Re-enable buttons that need selection
+            }
+        }
+
+        // --- Settings Modal Logic ---
+        function openSettingsModal() {
+            // Load current settings from appState into modal fields
+            updateSettingsUI(); // Ensures modal fields are up-to-date when opened
+            settingsModal.classList.add('active');
+        }
+        function closeSettingsModal() {
+            settingsModal.classList.remove('active');
+        }
+        async function saveSettings() {
+            const newSettings = {
+                ollama_model: aiModelSelect.value,
+                personality: aiPersonalitySelect.value,
+                voice: ttsVoiceSelect.value,
+                auto_play_ai_tts: autoPlayTtsToggle.checked,
+                ai_temperature: parseFloat(aiTemperatureSlider.value),
+                ai_context_window: parseInt(aiContextWindowInput.value)
+            };
+            try {
+                const response = await apiRequest('/settings', 'POST', newSettings);
+                showToast('Settings saved successfully!', 'success');
+                // Update appState with saved settings (backend response should confirm them)
+                appState.currentOllamaModel = response.updated_settings.ollama_model;
+                appState.selectedPersonality = response.updated_settings.personality;
+                appState.selectedVoice = response.updated_settings.voice;
+                appState.autoPlayAiTts = response.updated_settings.auto_play_ai_tts;
+                appState.aiTemperature = response.updated_settings.ai_temperature;
+                appState.aiContextWindow = response.updated_settings.ai_context_window;
+
+                updateSettingsUI(); // Refresh UI elements reflecting settings, like AI action buttons
+                updateChatUI(); // Update chat input placeholder if model changed
+                closeSettingsModal();
+            } catch (error) {
+                showToast(`Failed to save settings: ${error.message}`, 'error');
+            }
+        }
+        async function fetchAndLoadSettings() {
+            try {
+                const settings = await apiRequest('/settings');
+                appState.currentOllamaModel = settings.current_ollama_model;
+                appState.availableOllamaModels = settings.available_ollama_models || [];
+                appState.selectedPersonality = settings.selected_personality;
+                appState.availablePersonalities = settings.available_personalities || Object.keys(appState.availablePersonalities); // Fallback if backend doesn't send
+                appState.selectedVoice = settings.selected_voice;
+                appState.availableVoices = settings.available_voices || appState.availableVoices; // Fallback
+                appState.autoPlayAiTts = settings.auto_play_ai_tts;
+                appState.aiTemperature = settings.ai_temperature || 0.6;
+                appState.aiContextWindow = settings.ai_context_window || 4096;
+
+                // Populate PERSONALITIES if not already (e.g. from server on first load)
+                // This assumes server /settings includes the PERSONALITIES dict structure
+                if (settings.personalities_object) { // If backend sends the full PERSONALITIES object
+                    appState.availablePersonalities = Object.keys(settings.personalities_object);
+                } else if (appState.availablePersonalities.length === 0) { // Fallback if not sent by backend
+                     // This should be populated from the server's PERSONALITIES constant if possible
+                     // For now, hardcoding a few if backend doesn't provide full list
+                    const defaultPersonalities = {"Default Tutor": {}, "Socratic Tutor": {}, "Technical Expert": {}};
+                    appState.availablePersonalities = Object.keys(defaultPersonalities);
+                }
+
+                updateSettingsUI();
+                const systemMessage = { role: 'system', content: `Settings loaded. Current AI Model: ${appState.currentOllamaModel || 'Not set'}.`, timestamp: new Date().toISOString() };
+                appState.chatMessages.push(systemMessage);
+                addMessageToChatDOM(systemMessage);
+
+            } catch (error) {
+                showToast('Failed to load settings from server.', 'error');
+                // Use default appState values
+                updateSettingsUI(); // Update with defaults
+            }
+        }
+        async function handleRefreshModels() {
+            refreshModelsButton.disabled = true;
+            refreshModelsButton.innerHTML = `<svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
+            try {
+                const data = await apiRequest('/refresh_models');
+                appState.availableOllamaModels = data.models;
+                appState.currentOllamaModel = data.current_model; // Backend might suggest a new current model
+                showToast(data.message || 'Models refreshed!', 'success');
+                updateSettingsUI(); // Update the dropdown
+            } catch (error) {
+                showToast(`Failed to refresh models: ${error.message}`, 'error');
+            } finally {
+                refreshModelsButton.disabled = false;
+                refreshModelsButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v6h6"></path><path d="M21 12A9 9 0 0 0 6 5.3L3 8"></path><path d="M21 22v-6h-6"></path><path d="M3 12a9 9 0 0 0 15 6.7l3-2.7"></path></svg>`;
+            }
+        }
+
+        // --- TTS Logic ---
+        let currentAudioElement = null;
+        function handleTtsRequest(text, autoPlay = false) {
+            if (!text || appState.isTtsLoading) return;
+
+            appState.isTtsLoading = true;
+            appState.ttsAudioUrl = null; // Clear previous
+            if(currentAudioElement && !currentAudioElement.paused) currentAudioElement.pause();
+            // Determine which TTS control to update (page or AI response)
+            const textIdentifier = (text === appState.pdfPageTexts[appState.pdfCurrentPage - 1]) ? 'page' : 'ai_response';
+            updateTtsControlsUI(textIdentifier); // Show loading state
+
+            apiRequest('/tts', 'POST', { text: text, voice: appState.selectedVoice })
+                .then(data => {
+                    appState.ttsTaskId = data.task_id;
+                    pollTtsStatus(data.task_id, text, autoPlay);
+                })
+                .catch(error => {
+                    showToast(`TTS request failed: ${error.message}`, 'error');
+                    appState.isTtsLoading = false;
+                    updateTtsControlsUI(textIdentifier); // Update UI to show failure
+                });
+        }
+
+        function pollTtsStatus(taskId, originalText, autoPlay) {
+            const ttsPollInterval = setInterval(async () => {
+                try {
+                    const data = await apiRequest(`/tts_status/${taskId}`);
+                    const textIdentifier = (originalText === appState.pdfPageTexts[appState.pdfCurrentPage - 1]) ? 'page' : 'ai_response';
+
+                    if (data.status === 'completed') {
+                        clearInterval(ttsPollInterval);
+                        appState.isTtsLoading = false;
+                        appState.ttsAudioUrl = data.audio_url; // This is a URL like /api/v1/tts_audio/filename.mp3
+                        showToast('TTS audio ready!', 'success');
+                        updateTtsControlsUI(textIdentifier); // Update UI to show ready state
+                        if (autoPlay) playTtsAudio(originalText); // Pass originalText to play function
+                    } else if (data.status === 'failed') { // Explicitly check for 'failed' status from backend
+                        clearInterval(ttsPollInterval);
+                        appState.isTtsLoading = false;
+                        showToast(`TTS generation failed: ${data.error || 'Unknown error'}`, 'error');
+                        updateTtsControlsUI(textIdentifier); // Update UI to show failure
+                    }
+                    // If pending or started, do nothing and wait for next poll
+                } catch (error) {
+                    clearInterval(ttsPollInterval);
+                    appState.isTtsLoading = false;
+                    showToast(`Error polling TTS status: ${error.message}`, 'error');
+                     const textIdentifier = (originalText === appState.pdfPageTexts[appState.pdfCurrentPage - 1]) ? 'page' : 'ai_response';
+                    updateTtsControlsUI(textIdentifier); // Update UI to show failure
+                }
+            }, 2500);
+        }
+
+        function playTtsAudio(textForWhichAudioWasGenerated) {
+             const textIdentifier = (textForWhichAudioWasGenerated === appState.pdfPageTexts[appState.pdfCurrentPage - 1]) ? 'page' : 'ai_response';
+
+            if (!appState.ttsAudioUrl) {
+                showToast('No TTS audio available to play.', 'warning');
+                updateTtsControlsUI(textIdentifier);
+                return;
+            }
+            if (currentAudioElement && !currentAudioElement.paused) { // If other audio is playing, stop it
+                currentAudioElement.pause();
+            }
+            currentAudioElement = new Audio(appState.ttsAudioUrl);
+
+            currentAudioElement.play()
+                .then(() => {
+                    appState.isTtsPlaying = true;
+                    updateTtsControlsUI(textIdentifier); // Update UI to show playing state
+                })
+                .catch(error => {
+                    console.error("Error playing TTS audio:", error);
+                    // Check for specific browser errors like AutoplayError
+                    if (error.name === 'NotAllowedError') {
+                         showToast('Autoplay blocked by browser. Please click the play button.', 'warning');
+                    } else {
+                         showToast(`Error playing TTS audio: ${error.message}`, 'error');
+                    }
+                    appState.isTtsPlaying = false;
+                    updateTtsControlsUI(textIdentifier); // Update UI to show idle state
+                    currentAudioElement = null;
+                });
+
+            currentAudioElement.onended = () => {
+                appState.isTtsPlaying = false;
+                updateTtsControlsUI(textIdentifier); // Update UI to show idle state
+                currentAudioElement = null;
+            };
+             currentAudioElement.onerror = (e) => {
+                console.error("Audio playback error:", e);
+                showToast('Failed to load or play TTS audio.', 'error');
+                appState.isTtsPlaying = false;
+                updateTtsControlsUI(textIdentifier); // Update UI to show idle state
+                currentAudioElement = null;
+            };
+        }
+
+        function stopTtsAudio(textForWhichAudioWasGenerated) {
+            if (currentAudioElement) {
+                currentAudioElement.pause();
+                currentAudioElement.currentTime = 0; // Reset
+                appState.isTtsPlaying = false;
+                 const textIdentifier = (textForWhichAudioWasGenerated === appState.pdfPageTexts[appState.pdfCurrentPage - 1]) ? 'page' : 'ai_response';
+                updateTtsControlsUI(textIdentifier); // Update UI to show idle state
+                currentAudioElement = null; // Release the element
+            }
+        }
+
+        function updateTtsControlsUI(textIdentifier) { // textIdentifier could be 'page' or 'ai_response'
+            let controlsContainer, playButton, stopButton;
+
+            if (textIdentifier === 'page') {
+                playButton = speakPageButton;
+                // Find or create the stop button next to the play button
+                stopButton = document.getElementById('stop-page-tts-button');
+                if (!stopButton) {
+                     stopButton = document.createElement('button');
+                     stopButton.id = 'stop-page-tts-button';
+                     stopButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12"></rect></svg> Stop`;
+                     stopButton.className = "p-2 text-sm bg-red-600 hover:bg-red-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1";
+                     // Insert stop button after the play button within the same parent div
+                     speakPageButton.parentElement.appendChild(stopButton);
+                     stopButton.onclick = () => stopTtsAudio(appState.pdfPageTexts[appState.pdfCurrentPage - 1]);
+                }
+            } else { // AI Response
+                controlsContainer = lastAiResponseTtsControls;
+                 // Clear existing buttons first to rebuild
+                controlsContainer.innerHTML = '';
+
+                playButton = document.createElement('button');
+                playButton.id = 'play-ai-response-tts-button';
+                playButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> Speak AI Response`;
+                playButton.className = "text-xs px-2.5 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-md transition-colors flex items-center gap-1.5 disabled:opacity-60";
+                playButton.onclick = () => handleTtsRequest(appState.lastAiResponseForTts);
+                controlsContainer.appendChild(playButton);
+
+                stopButton = document.createElement('button');
+                stopButton.id = 'stop-ai-response-tts-button';
+                stopButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12"></rect></rect></svg> Stop`;
+                stopButton.className = "text-xs px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors flex items-center gap-1.5 disabled:opacity-60";
+                stopButton.onclick = () => stopTtsAudio(appState.lastAiResponseForTts);
+                controlsContainer.appendChild(stopButton);
+            }
+
+            // Update button states based on TTS state
+            if (appState.isTtsLoading) {
+                playButton.innerHTML = `<svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Generating...`;
+                playButton.disabled = true;
+                if (stopButton) stopButton.classList.add('hidden');
+            } else if (appState.isTtsPlaying) {
+                 playButton.innerHTML = textIdentifier === 'page' ? `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg> Playing Page` : `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> Playing AI Response`;
+                playButton.classList.replace('bg-teal-600', 'bg-amber-600'); // Change color while playing
+                playButton.classList.replace('hover:bg-teal-700', 'hover:bg-amber-700');
+                playButton.disabled = true; // Disable play while playing, use stop
+                if (stopButton) {
+                    stopButton.classList.remove('hidden');
+                    stopButton.disabled = false;
+                }
+            } else { // Ready to play or idle
+                 playButton.innerHTML = textIdentifier === 'page' ? `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg> Speak Page` : `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> Speak AI Response`;
+                playButton.disabled = !appState.ttsAudioUrl && textIdentifier !== 'page'; // Disable AI play if no URL yet
+                 if (textIdentifier === 'page') playButton.disabled = !appState.pdfPageTexts[appState.pdfCurrentPage -1] || appState.pdfPageTexts[appState.pdfCurrentPage -1] === 'No text extracted for this page.';
+
+                playButton.classList.replace('bg-amber-600', 'bg-teal-600');
+                playButton.classList.replace('hover:bg-amber-700', 'hover:bg-teal-700');
+                if (stopButton) stopButton.classList.add('hidden');
+            }
+        }
+
+
+        function updateLastAiResponseTtsControls() {
+            if (appState.lastAiResponseForTts) {
+                lastAiResponseTtsControls.classList.remove('hidden');
+                updateTtsControlsUI('ai_response');
+            } else {
+                lastAiResponseTtsControls.classList.add('hidden');
+                lastAiResponseTtsControls.innerHTML = ''; // Clear buttons when no response
+            }
+        }
+
+
+        // --- Voice Query Logic ---
+        function handleVoiceQuery() {
+            if (appState.isVoiceRecording) {
+                // Stop recording
+                if (appState.mediaRecorder && appState.mediaRecorder.state === "recording") {
+                    appState.mediaRecorder.stop();
+                }
+                // State and UI updates will happen in onstop handler
+            } else {
+                // Start recording
+                if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                    navigator.mediaDevices.getUserMedia({ audio: true })
+                        .then(stream => {
+                            appState.mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' }); // Specify webm
+                            appState.audioChunks = [];
+                            appState.mediaRecorder.ondataavailable = event => {
+                                appState.audioChunks.push(event.data);
+                            };
+                            appState.mediaRecorder.onstop = sendVoiceQueryToServer;
+                            appState.mediaRecorder.start();
+                            appState.isVoiceRecording = true;
+                            voiceQueryButton.classList.add('mic-recording', 'bg-red-500', 'hover:bg-red-600');
+                            voiceQueryButton.classList.remove('bg-slate-600', 'hover:bg-slate-500');
+                            voiceQueryButton.title = "Stop Recording";
+                            showToast('Recording started... Speak now!', 'info');
+                            updateChatUI(); // Disable text input
+                        })
+                        .catch(error => {
+                            console.error('Error accessing microphone:', error);
+                            showToast(`Microphone error: ${error.message}`, 'error');
+                        });
+                } else {
+                    showToast('Voice recording is not supported by your browser.', 'error');
+                }
+            }
+        }
+
+        async function sendVoiceQueryToServer() {
+            // Ensure recording state is reset immediately after stop
+            appState.isVoiceRecording = false;
+            voiceQueryButton.classList.remove('mic-recording', 'bg-red-500', 'hover:bg-red-600');
+            voiceQueryButton.classList.add('bg-slate-600', 'hover:bg-slate-500');
+            voiceQueryButton.title = "Voice Query";
+            updateChatUI(); // Re-enable text input placeholder
+
+            if (appState.audioChunks.length === 0) {
+                showToast('No audio recorded.', 'warning');
+                if(appState.mediaRecorder && appState.mediaRecorder.stream) {
+                    appState.mediaRecorder.stream.getTracks().forEach(track => track.stop()); // Release microphone
+                }
+                appState.mediaRecorder = null;
+                return;
+            }
+            const audioBlob = new Blob(appState.audioChunks, { type: 'audio/webm' });
+            const formData = new FormData();
+            formData.append('audio_file', audioBlob, 'voice_query.webm');
+
+            const placeholderMsg = { role: 'user', content: '(Voice input being processed...)', timestamp: new Date().toISOString() };
+            appState.chatMessages.push(placeholderMsg);
+            addMessageToChatDOM(placeholderMsg);
+
+            appState.isAiThinking = true; // Use AI thinking indicator
+            updateChatUI();
+
+            try {
+                const data = await apiRequest('/voice_query', 'POST', formData, true);
+                // Update placeholder user message with transcription
+                const placeholderIndex = appState.chatMessages.findIndex(m => m.content === '(Voice input being processed...)');
+                if (placeholderIndex !== -1) {
+                    appState.chatMessages[placeholderIndex].content = `(Voice) ${data.transcribed_text}`;
+                } else { // Fallback if placeholder was somehow missed
+                    appState.chatMessages.push({ role: 'user', content: `(Voice) ${data.transcribed_text}`, timestamp: new Date().toISOString() });
+                }
+
+                const aiMessage = { role: 'ai', content: data.ai_response, timestamp: new Date().toISOString() };
+                appState.chatMessages.push(aiMessage);
+
+                // Re-render chat after updating placeholder and adding AI response
+                updateChatUI();
+                chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
+
+                appState.lastAiResponseForTts = data.ai_response;
+                updateLastAiResponseTtsControls();
+                if (appState.autoPlayAiTts && data.ai_response) {
+                    handleTtsRequest(data.ai_response, true);
+                }
+                showToast('Voice query processed!', 'success');
+
+            } catch (error) {
+                const errorMsg = { role: 'error', content: `Voice Query Error: ${error.message}`, timestamp: new Date().toISOString() };
+                appState.chatMessages.push(errorMsg);
+                addMessageToChatDOM(errorMsg); // Show error in chat
+                chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
+            } finally {
+                appState.isAiThinking = false;
+                // appState.isVoiceRecording = false; // Already reset at the start of this function
+                updateChatUI();
+                appState.audioChunks = []; // Clear chunks
+                if(appState.mediaRecorder && appState.mediaRecorder.stream) {
+                    appState.mediaRecorder.stream.getTracks().forEach(track => track.stop()); // Release microphone
+                }
+                appState.mediaRecorder = null;
+            }
+        }
+
+        // --- Authentication Status and Logout ---
+        function updateAuthStatusUI() {
+            const loggedInUserEmail = localStorage.getItem('userEmail');
+            userAuthStatusDiv.innerHTML = ''; // Clear current content
+
+            if (loggedInUserEmail) {
+                // User is logged in
+                const emailSpan = document.createElement('span');
+                emailSpan.id = 'user-email-display';
+                emailSpan.textContent = `Logged in as: ${loggedInUserEmail}`;
+                emailSpan.className = 'text-slate-300 text-xs md:text-sm'; // Tailwind style with responsive text size
+                userAuthStatusDiv.appendChild(emailSpan);
+                // The logout button is now inside the settings modal
+            } else {
+                // User is not logged in
+                const loginLink = document.createElement('a');
+                loginLink.href = 'login.html';
+                loginLink.textContent = 'Login';
+                loginLink.className = 'hover:underline text-slate-300 text-xs md:text-sm'; // Tailwind style with responsive text size
+
+                const registerLink = document.createElement('a');
+                registerLink.href = 'register.html';
+                registerLink.textContent = 'Register';
+                registerLink.className = 'hover:underline text-slate-300 ml-2 md:ml-4 text-xs md:text-sm'; // Tailwind style with responsive text size and margin
+
+                userAuthStatusDiv.appendChild(loginLink);
+                userAuthStatusDiv.appendChild(registerLink);
+            }
+        }
+
+        async function handleLogout() {
+            if (confirm("Are you sure you want to log out?")) {
+                try {
+                    // Send POST request to the logout endpoint
+                    const response = await fetch('/auth/logout', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            // Include authorization header if using tokens (e.g., Bearer token)
+                            // 'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                        }
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        // Clear user info from localStorage
+                        localStorage.removeItem('userEmail');
+                        localStorage.removeItem('userId');
+                        // localStorage.removeItem('authToken'); // Clear token if used
+
+                        showToast(data.message || 'Logged out successfully.', 'success');
+
+                        // Redirect to the login page after a short delay
+                        setTimeout(() => {
+                            window.location.href = 'login.html'; // Redirect to login page
+                        }, 1000); // Redirect after 1 second
+                    } else {
+                        // Handle logout failure
+                        showToast(data.error || 'Logout failed.', 'error');
+                        console.error('Logout error:', data.error);
+                    }
+                } catch (error) {
+                    // Handle network or other errors
+                    console.error('Logout error:', error);
+                    showToast('An error occurred during logout.', 'error');
+                }
+            }
+        }
+
+
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // Get all DOM elements
+            themeToggleButton = document.getElementById('theme-toggle-button');
+            themeIconSun = document.getElementById('theme-icon-sun');
+            themeIconMoon = document.getElementById('theme-icon-moon');
+            settingsButton = document.getElementById('settings-button');
+            settingsModal = document.getElementById('settings-modal');
+            closeSettingsModalButton = document.getElementById('close-settings-modal-button');
+            saveSettingsButton = document.getElementById('save-settings-button');
+
+            pdfFileInput = document.getElementById('pdf-file-input');
+            pdfUploadArea = document.getElementById('pdf-upload-area');
+            pdfUploadProgressBar = document.getElementById('pdf-upload-progress-bar');
+            pdfUploadProgress = document.getElementById('pdf-upload-progress');
+            pdfProcessingStatus = document.getElementById('pdf-processing-status');
+            pdfFilenameDisplay = document.getElementById('pdf-filename-display');
+
+            pdfViewerControls = document.getElementById('pdf-viewer-controls');
+            prevPageButton = document.getElementById('prev-page-button');
+            nextPageButton = document.getElementById('next-page-button');
+            pageNumInput = document.getElementById('page-num-input');
+            totalPagesDisplay = document.getElementById('total-pages-display');
+            zoomInButton = document.getElementById('zoom-in-button');
+            zoomOutButton = document.getElementById('zoom-out-button');
+            zoomResetButton = document.getElementById('zoom-reset-button');
+            zoomLevelDisplay = document.getElementById('zoom-level-display');
+            pdfImageViewer = document.getElementById('pdf-image-viewer');
+            pdfPageImage = document.getElementById('pdf-page-image');
+            pdfViewerPlaceholder = document.getElementById('pdf-viewer-placeholder');
+            pdfPageLoadingSpinner = document.getElementById('pdf-page-loading-spinner');
+
+            speakPageButton = document.getElementById('speak-page-button');
+            pdfTextDisplayContainer = document.getElementById('pdf-text-display-container');
+            pdfTextDisplay = document.getElementById('pdf-text-display');
+            toggleTextDisplayButton = document.getElementById('toggle-text-display-button');
+
+            chatPanel = document.getElementById('chat-panel');
+            aiActionsBar = document.getElementById('ai-actions-bar');
+            chatMessagesContainer = document.getElementById('chat-messages');
+            chatInput = document.getElementById('chat-input');
+            sendChatButton = document.getElementById('send-chat-button');
+            voiceQueryButton = document.getElementById('voice-query-button');
+            aiThinkingIndicator = document.getElementById('ai-thinking-indicator');
+            lastAiResponseTtsControls = document.getElementById('last-ai-response-tts-controls');
+
+            aiModelSelect = document.getElementById('ai-model-select');
+            aiPersonalitySelect = document.getElementById('ai-personality-select');
+            ttsVoiceSelect = document.getElementById('tts-voice-select');
+            autoPlayTtsToggle = document.getElementById('auto-play-tts-toggle');
+            aiTemperatureSlider = document.getElementById('ai-temperature-slider');
+            aiTemperatureValue = document.getElementById('ai-temperature-value');
+            aiContextWindowInput = document.getElementById('ai-context-window-input');
+            refreshModelsButton = document.getElementById('refresh-models-button');
+            clearChatHistoryButton = document.getElementById('clear-chat-history-button');
+            clearUserCacheButton = document.getElementById('clear-user-cache-button');
+            logoutButton = document.getElementById('logout-button'); // Get the logout button
+            userAuthStatusDiv = document.getElementById('user-auth-status'); // Get the auth status div
+
+
+            toastContainer = document.getElementById('toast-container');
+
+            // Initialize DOMPurify (assuming it's loaded globally or via another script)
+            // If not, you'd need to include it. For this example, we assume it's available.
+            if (typeof DOMPurify === 'undefined') {
+                console.warn('DOMPurify not loaded. XSS protection for HTML content in chat might be limited.');
+                // Create a dummy DOMPurify if not present to avoid errors, but this is not secure.
+                window.DOMPurify = { sanitize: (html) => html };
+            }
+
+
+            // Initial theme setup
+            const storedTheme = localStorage.getItem('aiCompanionTheme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            applyTheme(storedTheme);
+            themeToggleButton.onclick = () => {
+                const newTheme = document.documentElement.classList.contains('dark') ? 'light' : 'dark';
+                applyTheme(newTheme);
+            };
+
+            // Settings Modal Listeners
+            settingsButton.onclick = openSettingsModal;
+            closeSettingsModalButton.onclick = closeSettingsModal;
+            saveSettingsButton.onclick = saveSettings;
+            settingsModal.onclick = (e) => { if (e.target === settingsModal) closeSettingsModal(); }; // Close on overlay click
+            refreshModelsButton.onclick = handleRefreshModels;
+            aiTemperatureSlider.oninput = () => { aiTemperatureValue.textContent = parseFloat(aiTemperatureSlider.value).toFixed(1); };
+
+
+            // PDF Listeners
+            pdfFileInput.onchange = handlePdfFileUpload;
+            // Drag and drop for PDF upload
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                pdfUploadArea.addEventListener(eventName, preventDefaults, false);
+                document.body.addEventListener(eventName, preventDefaults, false); // Prevent browser default for whole page
+            });
+            ['dragenter', 'dragover'].forEach(eventName => {
+                pdfUploadArea.addEventListener(eventName, () => pdfUploadArea.classList.add('border-sky-500', 'bg-slate-700'), false);
+            });
+            ['dragleave', 'drop'].forEach(eventName => {
+                pdfUploadArea.addEventListener(eventName, () => pdfUploadArea.classList.remove('border-sky-500', 'bg-slate-700'), false);
+            });
+            pdfUploadArea.addEventListener('drop', (e) => {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                if (files.length) {
+                    pdfFileInput.files = files; // Assign to file input
+                    handlePdfFileUpload({target: pdfFileInput}); // Trigger handler
+                }
+            }, false);
+            function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
+
+
+            prevPageButton.onclick = () => handlePageNavigation(appState.pdfCurrentPage - 1);
+            nextPageButton.onclick = () => handlePageNavigation(appState.pdfCurrentPage + 1);
+            pageNumInput.onchange = () => handlePageNavigation(parseInt(pageNumInput.value));
+            pageNumInput.onkeyup = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handlePageNavigation(parseInt(pageNumInput.value)); }};
+
+            zoomInButton.onclick = () => handleZoom('in');
+            zoomOutButton.onclick = () => handleZoom('out');
+            zoomResetButton.onclick = () => handleZoom('reset');
+
+            toggleTextDisplayButton.onclick = handleToggleTextDisplay;
+            pdfTextDisplay.onmouseup = handleTextSelection; // Listen for text selection on the displayed text
+
+            // Chat Listeners
+            sendChatButton.onclick = handleSendMessage;
+            chatInput.onkeypress = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); }};
+            // Auto-resize textarea
+            chatInput.addEventListener('input', () => {
+                chatInput.style.height = 'auto';
+                chatInput.style.height = (chatInput.scrollHeight) + 'px';
+            });
+            voiceQueryButton.onclick = handleVoiceQuery;
+
+            // Session Management Buttons
+            clearChatHistoryButton.onclick = async () => {
+                if (confirm("Are you sure you want to clear the chat history?")) {
+                    try {
+                        await apiRequest('/clear_chat', 'DELETE');
+                        appState.chatMessages = [];
+                        appState.lastAiResponseForTts = null;
+                        updateChatUI();
+                        updateLastAiResponseTtsControls();
+                        showToast('Chat history cleared.', 'success');
+                    } catch (error) {
+                        showToast(`Failed to clear chat: ${error.message}`, 'error');
+                    }
+                }
+            };
+            clearUserCacheButton.onclick = async () => {
+                 if (confirm("WARNING: This will clear all your data (PDF, chat, settings) and reset the session. Are you sure?")) {
+                    try {
+                        await apiRequest('/clear_cache', 'POST');
+                        // Effectively a soft refresh of state is needed
+                        appState.pdfFile= null; appState.pdfTaskId= null; appState.isPdfProcessing= false; appState.pdfFilename= null; appState.pdfTotalPages= 0; appState.pdfCurrentPage= 1; appState.pdfZoomLevel= 1.0; appState.pdfPageTexts= []; appState.pdfPageImagesBase64= [];
+                        appState.chatMessages = []; appState.isAiThinking = false; appState.selectedTextForAi = null; appState.lastAiResponseForTts = null;
+
+                        showToast('User session cleared. Re-fetching initial settings.', 'success');
+                        await fetchAndLoadSettings(); // This will re-populate settings and update UI
+                        updatePdfControlsUI();
+                        updateChatUI();
+                        updateLastAiResponseTtsControls();
+                        pdfImageViewer.innerHTML = '<div id="pdf-viewer-placeholder" class="text-slate-500">Upload a PDF to view pages.</div>'; // Reset viewer
+                        pdfUploadArea.classList.remove('hidden');
+                        aiActionsBar.classList.add('hidden');
+
+                    } catch (error) {
+                        showToast(`Failed to clear session: ${error.message}`, 'error');
+                    }
+                }
+            };
+
+            // Logout Button Listener (inside settings modal)
+            if (logoutButton) { // Check if the button exists
+                logoutButton.onclick = handleLogout;
+            }
+
+
+            // TTS for Page
+            speakPageButton.onclick = () => {
+                const pageText = appState.pdfPageTexts[appState.pdfCurrentPage - 1];
+                if (pageText && pageText !== 'No text extracted for this page.') {
+                    handleTtsRequest(pageText, false); // Pass text directly, not 'page' identifier
+                } else {
+                    showToast('No text available on this page to speak.', 'warning');
+                }
+            };
+
+
+            // Initial Load
+            fetchAndLoadSettings(); // Load settings from backend
+            updatePdfControlsUI(); // Initial state of PDF controls
+            updateChatUI(); // Initial state of chat UI
+            updateLastAiResponseTtsControls();
+            updateAuthStatusUI(); // Update auth status display on load
+        });
+
+    </script>
+</body>
+</html>

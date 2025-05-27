@@ -1,0 +1,509 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "AI Learning Companion API",
+    "version": "v1",
+    "description": "API for an AI-powered learning companion that assists with PDF documents, offers AI chat, text-to-speech, and voice queries."
+  },
+  "servers": [
+    {
+      "url": "/api/v1",
+      "description": "Development server"
+    }
+  ],
+  "paths": {
+    "/pdf": {
+      "post": {
+        "summary": "Upload a PDF file for processing.",
+        "description": "Accepts a PDF file, saves it, and queues it for background processing (text/image extraction).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "pdf_file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "The PDF file to upload."
+                  }
+                },
+                "required": ["pdf_file"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "PDF uploaded successfully, processing in background.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {"type": "string"},
+                    "task_id": {"type": "string", "description": "ID of the background processing task."},
+                    "filename": {"type": "string", "description": "Original filename of the uploaded PDF."}
+                  }
+                }
+              }
+            }
+          },
+          "400": {"description": "Bad request (e.g., no file, invalid file type)."},
+          "413": {"description": "Payload too large (PDF size exceeds limit)."},
+          "500": {"description": "Internal server error during upload."}
+        },
+        "tags": ["PDF Management"]
+      }
+    },
+    "/pdf_status/{task_id}": {
+      "get": {
+        "summary": "Get the status of PDF processing.",
+        "description": "Checks the status of a background PDF processing task. If completed, PDF data is loaded into the session.",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "description": "The ID of the PDF processing task.",
+            "schema": {"type": "string"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Processing complete. PDF data loaded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {"type": "string", "example": "Completed"},
+                    "filename": {"type": "string"},
+                    "total_pages": {"type": "integer"},
+                    "current_page_text": {"type": "string"},
+                    "current_page_images_count": {"type": "integer"},
+                    "zoom_level": {"type": "number"}
+                  }
+                }
+              }
+            }
+          },
+          "202": {"description": "Processing is still ongoing or pending."},
+          "500": {"description": "Processing failed or an error occurred."}
+        },
+        "tags": ["PDF Management"]
+      }
+    },
+    "/page_content/{page_number_display}": {
+      "get": {
+        "summary": "Get content of a specific PDF page.",
+        "description": "Retrieves the extracted text and image count for the specified page number (1-indexed).",
+        "parameters": [
+          {
+            "name": "page_number_display",
+            "in": "path",
+            "required": true,
+            "description": "The page number to retrieve (1-indexed).",
+            "schema": {"type": "integer"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page content retrieved successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                     "page_text": {"type": "string"},
+                     "page_images_count": {"type": "integer"},
+                     "current_page_num_display": {"type": "integer"},
+                     "total_pages": {"type": "integer"},
+                     "pdf_filename": {"type": "string"}
+                  }
+                }
+              }
+            }
+          },
+          "400": {"description": "Bad request (e.g., no PDF loaded, invalid page number)."}
+        },
+        "tags": ["PDF Management"]
+      }
+    },
+    "/navigate_pdf": {
+      "post": {
+        "summary": "Navigate within the loaded PDF.",
+        "description": "Allows navigation to a specific page, or to the previous/next page.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "direction": {"type": "string", "enum": ["prev", "next"], "description": "Navigate to previous or next page."},
+                  "page_num_display": {"type": "integer", "description": "Navigate to a specific page number (1-indexed)."}
+                },
+                "description": "Provide either 'direction' or 'page_num_display'."
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Navigation successful. Returns current page details."},
+          "400": {"description": "Bad request (e.g., no PDF loaded, invalid parameters)."}
+        },
+        "tags": ["PDF Management"]
+      }
+    },
+    "/zoom": {
+      "get": {
+        "summary": "Get current PDF zoom level.",
+        "responses": {
+          "200": {"description": "Current zoom level."}
+        },
+        "tags": ["PDF Management"]
+      },
+      "post": {
+        "summary": "Set PDF zoom level.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object", "properties": {"zoom_level": {"type": "number", "format": "float"}}
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Zoom level updated."},
+          "400": {"description": "Invalid zoom level."}
+        },
+        "tags": ["PDF Management"]
+      }
+    },
+     "/render_page/{page_number_display}": {
+      "get": {
+        "summary": "Render a specific PDF page as an image.",
+        "description": "Renders the specified PDF page (1-indexed) to a base64 PNG image, applying the current zoom level. Requires the original PDF to be accessible for on-the-fly rendering.",
+        "parameters": [
+          {
+            "name": "page_number_display",
+            "in": "path",
+            "required": true,
+            "description": "The page number to render (1-indexed).",
+            "schema": {"type": "integer"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page rendered successfully or pre-extracted image served.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "image_data_b64": {"type": "string", "format": "byte", "description": "Base64 encoded PNG image data."},
+                    "message": {"type": "string", "description": "Optional message, e.g., if serving pre-extracted image."},
+                    "rendered_with_zoom": {"type": "boolean", "description": "Indicates if the image was re-rendered with current zoom."}
+                  }
+                }
+              }
+            }
+          },
+          "400": {"description": "Bad request (e.g., no PDF loaded, page number out of bounds)."},
+          "404": {"description": "Original PDF not available for rendering or page not found."},
+          "500": {"description": "Error during page rendering."}
+        },
+        "tags": ["PDF Management"]
+      }
+    },
+    "/ask_ai": {
+      "post": {
+        "summary": "Interact with the AI model.",
+        "description": "Sends a query or command to the AI, potentially including context from the current PDF page, chat history, and selected text. Action type determines AI behavior.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "input_text": {"type": "string", "description": "User's primary input or question for the AI."},
+                  "action": {
+                    "type": "string",
+                    "enum": ["ask", "explain_concept", "explain_code", "summarize_page", "generate_quiz", "key_points", "analyze_images"],
+                    "default": "ask",
+                    "description": "The type of AI action to perform."
+                  },
+                  "selected_text": {"type": "string", "description": "Text selected by the user from the PDF, relevant for actions like 'explain_concept' or 'explain_code'."}
+                },
+                "required": ["action"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "AI response received.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sender": {"type": "string", "example": "AI"},
+                    "message": {"type": "string", "description": "The AI's response text."},
+                    "tts_autoplay_triggered": {"type": "boolean"}
+                  }
+                }
+              }
+            }
+          },
+          "400": {"description": "Bad request (e.g., missing parameters, invalid action)."},
+          "500": {"description": "Error communicating with AI service or processing request."}
+        },
+        "tags": ["AI Interaction"]
+      }
+    },
+    "/chat_history": {
+      "get": {
+        "summary": "Get chat history.",
+        "responses": {
+          "200": {"description": "Current chat history."}
+        },
+        "tags": ["AI Interaction"]
+      }
+    },
+    "/clear_chat": {
+      "delete": {
+        "summary": "Clear chat history.",
+        "responses": {
+          "200": {"description": "Chat history cleared."}
+        },
+        "tags": ["AI Interaction"]
+      }
+    },
+    "/clear_cache": {
+      "post": {
+        "summary": "Clear user session cache.",
+        "description": "Clears all data from the current user's session, including PDF data, chat history, and settings. Effectively resets the user state.",
+        "responses": {
+          "200": {
+            "description": "Session cache cleared successfully.",
+            "content": {
+              "application/json": {
+                "schema": {"type": "object", "properties": {"status": {"type": "string"}}}
+              }
+            }
+          }
+        },
+        "tags": ["Session Management"]
+      }
+    },
+    "/tts": {
+      "post": {
+        "summary": "Request Text-to-Speech (TTS) generation.",
+        "description": "Submits text to be converted to speech. Processing happens in the background.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "text": {"type": "string", "description": "The text to convert to speech."},
+                  "voice": {"type": "string", "description": "Optional. The voice ID to use for TTS (e.g., 'en-US-JennyNeural'). Defaults to session or server default."}
+                },
+                "required": ["text"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {"description": "TTS request submitted. Returns task ID."},
+          "400": {"description": "Bad request (e.g., missing text)."}
+        },
+        "tags": ["Speech Services"]
+      }
+    },
+    "/tts_status/{task_id}": {
+      "get": {
+        "summary": "Get TTS generation status.",
+        "description": "Checks the status of a TTS generation task. If complete, provides a URL to the audio file.",
+         "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "description": "The ID of the TTS task.",
+            "schema": {"type": "string"}
+          }
+        ],
+        "responses": {
+          "200": {"description": "TTS completed. Includes audio URL."},
+          "202": {"description": "TTS processing ongoing."},
+          "500": {"description": "TTS failed."}
+        },
+        "tags": ["Speech Services"]
+      }
+    },
+    "/tts_audio/{filename}": {
+      "get": {
+        "summary": "Get generated TTS audio file.",
+        "description": "Serves the MP3 audio file generated by a TTS task.",
+        "parameters": [
+          {
+            "name": "filename",
+            "in": "path",
+            "required": true,
+            "description": "The filename of the TTS audio file.",
+            "schema": {"type": "string"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "TTS audio file.",
+            "content": {"audio/mpeg": {"schema": {"type": "string", "format": "binary"}}}
+          },
+          "404": {"description": "Audio file not found."}
+        },
+        "tags": ["Speech Services"]
+      }
+    },
+     "/voice_query": {
+      "post": {
+        "summary": "Submit a voice query.",
+        "description": "Accepts an audio file, transcribes it, sends the text to the AI, and returns the AI's response.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "audio_file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "The audio file (e.g., WAV, MP3) containing the voice query."
+                  }
+                },
+                "required": ["audio_file"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Voice query processed successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "transcribed_text": {"type": "string"},
+                    "ai_response": {"type": "string"},
+                    "tts_autoplay_triggered": {"type": "boolean"}
+                  }
+                }
+              }
+            }
+          },
+          "400": {"description": "Bad request (e.g., no audio file, transcription failed)."},
+          "501": {"description": "Speech recognition not available on server."},
+          "503": {"description": "AI service or speech recognition service error."}
+        },
+        "tags": ["Speech Services"]
+      }
+    },
+    "/settings": {
+      "get": {
+        "summary": "Get current application settings.",
+        "description": "Retrieves current settings like selected AI model, personality, voice, etc., from the user's session.",
+        "responses": {
+          "200": {"description": "Current settings."}
+        },
+        "tags": ["Application Settings"]
+      },
+      "post": {
+        "summary": "Update application settings.",
+        "description": "Allows updating various application settings. Changes are stored in the user's session.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ollama_model": {"type": "string", "description": "Name of the Ollama model to use."},
+                  "personality": {"type": "string", "description": "Name of the AI personality to apply."},
+                  "voice": {"type": "string", "description": "Voice ID for TTS."},
+                  "auto_play_ai_tts": {"type": "boolean", "description": "Enable/disable auto-playing AI responses via TTS."},
+                  "ai_temperature": {"type": "number", "format":"float", "description": "Advanced: AI sampling temperature."},
+                  "ai_context_window": {"type": "integer", "description": "Advanced: AI context window size."}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Settings updated successfully."},
+          "400": {"description": "Bad request (e.g., invalid setting value)."}
+        },
+        "tags": ["Application Settings"]
+      }
+    },
+    "/refresh_models": {
+      "get": {
+        "summary": "Refresh the list of available AI models.",
+        "description": "Contacts the Ollama server to get an updated list of available models.",
+        "responses": {
+          "200": {"description": "Models refreshed. Returns new list and current selection."},
+          "503": {"description": "Failed to refresh models (e.g., Ollama offline)."}
+        },
+        "tags": ["Application Settings"]
+      }
+    },
+    "/model_capabilities/{model_name}": {
+      "get": {
+        "summary": "Get capabilities of a specific AI model.",
+        "description": "Retrieves details about a model's capabilities (e.g., vision, code). Model name can include slashes.",
+        "parameters": [
+          {
+            "name": "model_name",
+            "in": "path",
+            "required": true,
+            "description": "The full name of the Ollama model (e.g., 'llama3:latest' or 'namespace/model:tag').",
+            "schema": {"type": "string"}
+          }
+        ],
+        "responses": {
+          "200": {"description": "Model capabilities retrieved."},
+          "404": {"description": "Could not retrieve capabilities for the model."}
+        },
+        "tags": ["Application Settings"]
+      }
+    }
+  },
+  "components": {
+     "securitySchemes": {
+        "cookieAuth": {
+            "type": "apiKey",
+            "in": "cookie",
+            "name": "session"
+        }
+     }
+  },
+  "security": [
+    {
+        "cookieAuth": []
+    }
+  ],
+  "tags": [
+    {"name": "PDF Management", "description": "Endpoints for uploading, processing, and interacting with PDF documents."},
+    {"name": "AI Interaction", "description": "Endpoints for chatting with the AI, asking questions, and managing chat context."},
+    {"name": "Speech Services", "description": "Endpoints for Text-to-Speech (TTS) and voice query input."},
+    {"name": "Application Settings", "description": "Endpoints for managing application behavior, AI model selection, and user preferences."},
+    {"name": "Session Management", "description": "Endpoints related to user session control."}
+  ]
+}

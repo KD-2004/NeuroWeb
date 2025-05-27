@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - AI Learning Companion</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; border-radius: 4px; } /* slate-800 */
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; } /* slate-600 */
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; } /* slate-500 */
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a; /* slate-900 */
+            color: #e2e8f0; /* slate-200 */
+        }
+
+        /* Glassmorphism effect for container */
+        .glass-panel {
+            background-color: rgba(30, 41, 59, 0.6); /* slate-800 with opacity */
+            backdrop-filter: blur(12px) saturate(150%);
+            -webkit-backdrop-filter: blur(12px) saturate(150%);
+            border: 1px solid rgba(51, 65, 85, 0.4); /* slate-700 with opacity */
+            border-radius: 0.75rem; /* rounded-xl */
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        /* Custom message area styles for dark theme */
+        .message-area {
+            margin-top: 1rem; /* mt-4 */
+            padding: 0.75rem; /* p-3 */
+            border-radius: 0.375rem; /* rounded-md */
+            text-align: center;
+            font-size: 0.875rem; /* text-sm */
+        }
+        .message-area.success {
+            background-color: rgba(34, 197, 94, 0.2); /* green-500 with opacity */
+            color: #86efac; /* green-300 */
+            border: 1px solid rgba(34, 197, 94, 0.4); /* green-500 with opacity */
+        }
+        .message-area.error {
+            background-color: rgba(239, 68, 68, 0.2); /* red-500 with opacity */
+            color: #fca5a5; /* red-300 */
+            border: 1px solid rgba(239, 68, 68, 0.4); /* red-500 with opacity */
+        }
+         .message-area.info {
+            background-color: rgba(59, 130, 246, 0.2); /* blue-500 with opacity */
+            color: #93c5fd; /* blue-300 */
+            border: 1px solid rgba(59, 130, 246, 0.4); /* blue-500 with opacity */
+        }
+         .message-area.warning {
+            background-color: rgba(245, 158, 11, 0.2); /* amber-500 with opacity */
+            color: #fcd34d; /* amber-300 */
+            border: 1px solid rgba(245, 158, 11, 0.4); /* amber-500 with opacity */
+        }
+
+         /* Ensure Inter font is loaded */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+    <div class="glass-panel p-8 rounded-xl shadow-md w-full max-w-sm">
+        <h1 class="text-2xl font-bold text-center mb-6 text-sky-400">Login to AI Learning Companion</h1>
+        <form id="login-form" class="space-y-4">
+            <div>
+                <label for="email" class="block text-sm font-medium text-slate-300 mb-1">Email:</label>
+                <input type="email" id="email" name="email" required
+                       class="mt-1 block w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md shadow-sm text-gray-200 placeholder-slate-500
+                              focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+                       placeholder="Enter your email">
+            </div>
+            <div>
+                <label for="password" class="block text-sm font-medium text-slate-300 mb-1">Password:</label>
+                <input type="password" id="password" name="password" required
+                       class="mt-1 block w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md shadow-sm text-gray-200 placeholder-slate-500
+                              focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+                       placeholder="Enter your password">
+            </div>
+            <button type="submit"
+                    class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white
+                           bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 transition-colors">
+                Login
+            </button>
+        </form>
+        <div id="message-area" class="message-area" style="display:none;"></div>
+
+        <p class="mt-4 text-center text-sm text-slate-400">
+            Forgot your password? <a href="/static/request_password_reset.html" class="font-medium text-sky-500 hover:underline">Reset it here</a>.
+        </p>
+        <p class="mt-2 text-center text-sm text-slate-400">
+            Don't have an account? <a href="/static/register.html" class="font-medium text-sky-500 hover:underline">Register here</a>.
+        </p>
+    </div>
+
+    <script>
+        document.getElementById('login-form').addEventListener('submit', async function(event) {
+            event.preventDefault(); // Prevent default form submission
+            const messageArea = document.getElementById('message-area');
+            messageArea.textContent = ''; // Clear previous messages
+            messageArea.style.display = 'none'; // Hide message area initially
+            // Remove any existing resend button
+            const existingResendButton = document.getElementById('resend-verification-btn');
+            if (existingResendButton) {
+                existingResendButton.remove();
+            }
+
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                // Send login data to the Flask backend API
+                const response = await fetch('/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password }),
+                });
+
+                const data = await response.json();
+
+                // Display message area
+                messageArea.style.display = 'block';
+
+                if (response.ok) { // Check for status codes 200-299
+                    messageArea.textContent = data.message || 'Login successful!';
+                    // Apply success class for dark theme
+                    messageArea.className = 'message-area success';
+
+                    // Store user info (e.g., in localStorage) for use on other pages
+                    // In a real app, consider more secure ways to handle session/tokens
+                    localStorage.setItem('userEmail', data.email);
+                    localStorage.setItem('userId', data.user_id);
+                    // If your API returns a token, store it:
+                    // localStorage.setItem('authToken', data.token);
+
+
+                    // Redirect to the main application page or dashboard
+                    setTimeout(() => {
+                         window.location.href = 'index.html'; // Redirect to index page
+                    }, 1000); // Redirect after 1 second
+
+                } else {
+                    // Handle API errors (e.g., invalid credentials, unverified email)
+                    messageArea.textContent = data.error || `Login failed (Status: ${response.status})`;
+                    // Apply error class for dark theme
+                    messageArea.className = 'message-area error';
+                    console.error('Login failed:', data.error);
+
+                    // If the error indicates unverified email, show resend button
+                    if (data.error && data.error.includes("verify your email")) {
+                        const resendButton = document.createElement('button');
+                        resendButton.id = 'resend-verification-btn';
+                        resendButton.textContent = 'Resend Verification Email';
+                        // Style the resend button for dark theme
+                        resendButton.className = 'mt-2 px-3 py-1 border border-sky-600 text-sky-300 rounded-md hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 text-sm transition-colors'; // Tailwind button style
+                        messageArea.appendChild(resendButton); // Append button below the error message
+
+                        resendButton.addEventListener('click', async () => {
+                            try {
+                                // Send request to resend verification email
+                                const resendResponse = await fetch('/auth/resend_verification', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ email: email }) // Send the email entered in the form
+                                });
+                                const resendData = await resendResponse.json();
+                                if (resendResponse.ok) {
+                                    messageArea.textContent = resendData.message || 'Verification email sent.';
+                                    messageArea.className = 'message-area success'; // Apply success class
+                                    if (document.getElementById('resend-verification-btn')) {
+                                         document.getElementById('resend-verification-btn').remove(); // Remove button after success
+                                    }
+                                } else {
+                                    messageArea.textContent = resendData.error || 'Failed to resend verification email.';
+                                    messageArea.className = 'message-area error'; // Apply error class
+                                }
+                            } catch (e) {
+                                messageArea.textContent = 'Error resending email.';
+                                messageArea.className = 'message-area error'; // Apply error class
+                                console.error('Resend verification error:', e);
+                            }
+                        });
+                    }
+                }
+            } catch (error) {
+                // Handle network or other errors
+                console.error('Login error:', error);
+                messageArea.textContent = 'An error occurred during login.';
+                messageArea.className = 'message-area error'; // Apply error class
+            }
+        });
+    </script>
+</body>
+</html>

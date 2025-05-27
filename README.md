@@ -1,4 +1,4 @@
-# NeuroWeb
+# LearnMate-AI-PDF-Chatbot-Web
 
 A web application that transforms PDFs into interactive AI-powered learning tools using Ollama models running locally.
 
